@@ -1,5 +1,17 @@
+import json
 from datetime import datetime
 from .alpha_vantage_common import _make_api_request, _filter_csv_by_date_range
+
+
+def _is_premium_restriction(response_text: str) -> bool:
+    """Return True when Alpha Vantage rejects an endpoint as premium-only."""
+    try:
+        payload = json.loads(response_text)
+    except json.JSONDecodeError:
+        return False
+
+    info = str(payload.get("Information", ""))
+    return "premium endpoint" in info.lower()
 
 def get_stock(
     symbol: str,
@@ -34,5 +46,10 @@ def get_stock(
     }
 
     response = _make_api_request("TIME_SERIES_DAILY_ADJUSTED", params)
+
+    # Free Alpha Vantage keys cannot access the adjusted daily series.
+    # Fall back to the standard daily endpoint so market analysis can proceed.
+    if _is_premium_restriction(response):
+        response = _make_api_request("TIME_SERIES_DAILY", params)
 
     return _filter_csv_by_date_range(response, start_date, end_date)
