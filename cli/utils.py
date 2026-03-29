@@ -146,6 +146,12 @@ def select_shallow_thinking_agent(provider) -> str:
             ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
             ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
         ],
+        "bailian": [
+            ("Qwen 3.5 Plus - Recommended Coding Plan default", "qwen3.5-plus"),
+            ("Qwen 3 Max - Stronger general reasoning", "qwen3-max-2026-01-23"),
+            ("Qwen 3 Coder Plus - Coding-focused", "qwen3-coder-plus"),
+            ("GLM 5 - General purpose", "glm-5"),
+        ],
         "anthropic": [
             ("Claude Sonnet 4.6 - Best speed and intelligence balance", "claude-sonnet-4-6"),
             ("Claude Haiku 4.5 - Fast, near-instant responses", "claude-haiku-4-5"),
@@ -211,6 +217,12 @@ def select_deep_thinking_agent(provider) -> str:
             ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
             ("GPT-5.4 Pro - Most capable, expensive ($30/$180 per 1M tokens)", "gpt-5.4-pro"),
         ],
+        "bailian": [
+            ("Qwen 3 Max - Strongest general model in current profile", "qwen3-max-2026-01-23"),
+            ("Qwen 3.5 Plus - Recommended Coding Plan default", "qwen3.5-plus"),
+            ("Qwen 3 Coder Plus - Coding-focused", "qwen3-coder-plus"),
+            ("Kimi K2.5 - Large context alternative", "kimi-k2.5"),
+        ],
         "anthropic": [
             ("Claude Opus 4.6 - Most intelligent, agents and coding", "claude-opus-4-6"),
             ("Claude Opus 4.5 - Premium, max intelligence", "claude-opus-4-5"),
@@ -263,10 +275,10 @@ def select_deep_thinking_agent(provider) -> str:
     return choice
 
 def select_llm_provider() -> tuple[str, str]:
-    """Select the OpenAI api url using interactive selection."""
-    # Define OpenAI api options with their corresponding endpoints
+    """Select the LLM provider and base URL using interactive selection."""
     BASE_URLS = [
         ("OpenAI", "https://api.openai.com/v1"),
+        ("Bailian", "https://coding.dashscope.aliyuncs.com/v1"),
         ("Google", "https://generativelanguage.googleapis.com/v1"),
         ("Anthropic", "https://api.anthropic.com/"),
         ("xAI", "https://api.x.ai/v1"),

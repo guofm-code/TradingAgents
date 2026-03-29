@@ -19,6 +19,16 @@ VALID_MODELS = {
         "gpt-4.1-mini",
         "gpt-4.1-nano",
     ],
+    "bailian": [
+        "qwen3.5-plus",
+        "qwen3-max-2026-01-23",
+        "qwen3-coder-next",
+        "qwen3-coder-plus",
+        "MiniMax-M2.5",
+        "glm-5",
+        "glm-4.7",
+        "kimi-k2.5",
+    ],
     "anthropic": [
         # Claude 4.6 series (latest)
         "claude-opus-4-6",
@@ -54,7 +64,7 @@ VALID_MODELS = {
 def validate_model(provider: str, model: str) -> bool:
     """Check if model name is valid for the given provider.
 
-    For ollama, openrouter - any model is accepted.
+    For ollama and openrouter, any model is accepted.
     """
     provider_lower = provider.lower()
 

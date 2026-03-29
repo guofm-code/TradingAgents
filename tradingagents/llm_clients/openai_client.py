@@ -26,14 +26,31 @@ _PASSTHROUGH_KWARGS = (
 
 # Provider base URLs and API key env vars
 _PROVIDER_CONFIG = {
+    "bailian": ("https://coding.dashscope.aliyuncs.com/v1", ("OPENAI_API_KEY", "DASHSCOPE_API_KEY")),
     "xai": ("https://api.x.ai/v1", "XAI_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
 }
 
 
+def _get_provider_api_key(env_names: str | tuple[str, ...] | None) -> Optional[str]:
+    """Return the first configured API key from a provider env var list."""
+    if env_names is None:
+        return None
+
+    if isinstance(env_names, str):
+        env_names = (env_names,)
+
+    for env_name in env_names:
+        api_key = os.environ.get(env_name)
+        if api_key:
+            return api_key
+
+    return None
+
+
 class OpenAIClient(BaseLLMClient):
-    """Client for OpenAI, Ollama, OpenRouter, and xAI providers.
+    """Client for OpenAI-compatible providers including Bailian.
 
     For native OpenAI models, uses the Responses API (/v1/responses) which
     supports reasoning_effort with function tools across all model families
@@ -60,7 +77,7 @@ class OpenAIClient(BaseLLMClient):
             base_url, api_key_env = _PROVIDER_CONFIG[self.provider]
             llm_kwargs["base_url"] = base_url
             if api_key_env:
-                api_key = os.environ.get(api_key_env)
+                api_key = _get_provider_api_key(api_key_env)
                 if api_key:
                     llm_kwargs["api_key"] = api_key
             else:
@@ -75,8 +92,12 @@ class OpenAIClient(BaseLLMClient):
 
         # Native OpenAI: use Responses API for consistent behavior across
         # all model families. Third-party providers use Chat Completions.
-        if self.provider == "openai":
+        # Check if this is a third-party provider by checking base_url
+        if self.provider == "openai" and not self.base_url:
             llm_kwargs["use_responses_api"] = True
+        else:
+            # For custom base_url (like Alibaba Cloud), use standard Chat Completions
+            llm_kwargs["use_responses_api"] = False
 
         return NormalizedChatOpenAI(**llm_kwargs)
 
