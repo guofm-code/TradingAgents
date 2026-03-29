@@ -1,4 +1,6 @@
 import os
+import threading
+import time
 import requests
 import pandas as pd
 import json
@@ -6,6 +8,10 @@ from datetime import datetime
 from io import StringIO
 
 API_BASE_URL = "https://www.alphavantage.co/query"
+_REQUEST_LOCK = threading.Lock()
+_LAST_REQUEST_TS = 0.0
+_MIN_REQUEST_INTERVAL_SECONDS = 1.2
+_MAX_RETRIES = 4
 
 def get_api_key() -> str:
     """Retrieve the API key for Alpha Vantage from environment variables."""
@@ -39,6 +45,18 @@ class AlphaVantageRateLimitError(Exception):
     """Exception raised when Alpha Vantage API rate limit is exceeded."""
     pass
 
+
+def _wait_for_request_slot() -> None:
+    """Serialize Alpha Vantage requests to stay under the free-tier burst cap."""
+    global _LAST_REQUEST_TS
+
+    with _REQUEST_LOCK:
+        now = time.monotonic()
+        wait_time = _MIN_REQUEST_INTERVAL_SECONDS - (now - _LAST_REQUEST_TS)
+        if wait_time > 0:
+            time.sleep(wait_time)
+        _LAST_REQUEST_TS = time.monotonic()
+
 def _make_api_request(function_name: str, params: dict) -> dict | str:
     """Helper function to make API requests and handle responses.
     
@@ -63,24 +81,44 @@ def _make_api_request(function_name: str, params: dict) -> dict | str:
         # Remove entitlement if it's None or empty
         api_params.pop("entitlement", None)
     
-    response = requests.get(API_BASE_URL, params=api_params)
-    response.raise_for_status()
+    last_error = None
 
-    response_text = response.text
-    
-    # Check if response is JSON (error responses are typically JSON)
-    try:
-        response_json = json.loads(response_text)
-        # Check for rate limit error
-        if "Information" in response_json:
-            info_message = response_json["Information"]
-            if "rate limit" in info_message.lower() or "api key" in info_message.lower():
-                raise AlphaVantageRateLimitError(f"Alpha Vantage rate limit exceeded: {info_message}")
-    except json.JSONDecodeError:
-        # Response is not JSON (likely CSV data), which is normal
-        pass
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            _wait_for_request_slot()
+            response = requests.get(API_BASE_URL, params=api_params, timeout=60)
+            response.raise_for_status()
 
-    return response_text
+            response_text = response.text
+
+            # Check if response is JSON (error responses are typically JSON)
+            try:
+                response_json = json.loads(response_text)
+                # Check for rate limit error
+                if "Information" in response_json:
+                    info_message = response_json["Information"]
+                    if "rate limit" in info_message.lower() or "api key" in info_message.lower():
+                        raise AlphaVantageRateLimitError(
+                            f"Alpha Vantage rate limit exceeded: {info_message}"
+                        )
+            except json.JSONDecodeError:
+                # Response is not JSON (likely CSV data), which is normal
+                pass
+
+            return response_text
+
+        except AlphaVantageRateLimitError as exc:
+            last_error = exc
+            if attempt == _MAX_RETRIES:
+                raise
+            time.sleep(max(6, attempt * 4))
+        except requests.exceptions.RequestException as exc:
+            last_error = exc
+            if attempt == _MAX_RETRIES:
+                raise
+            time.sleep(attempt * 2)
+
+    raise last_error
 
 
 
